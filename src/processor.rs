@@ -11,7 +11,7 @@ use symphonia::core::{
     probe::Hint,
 };
 use thiserror::Error as ThisError;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 #[derive(ThisError, Debug)]
 pub enum Error {
@@ -138,18 +138,18 @@ pub fn process(p: &Path) -> Result<(), self::Error> {
         let entry = res?;
         if let Ok(file_type) = entry.file_type() {
             if file_type.is_file() {
-                info!("Found Regular file: {:?}", entry.path());
-                let f = File::open(entry.path())?;
+                let path = entry.path();
+                let name = path.file_name().unwrap();
+                info!("Processing file: '{path:?}'",);
+                let f = File::open(&path)?;
                 match process_impl(f) {
                     Ok(()) => {
-                        info!("Successfully processed file: {:?}", entry.path());
+                        info!(
+                            "Completed Processing for file: Successfully processed file: '{name:?}'",
+                        );
                     }
                     Err(e) => {
-                        warn!(
-                            "Could not process file: {:?} due to audio error: {:?}",
-                            entry.path(),
-                            e
-                        );
+                        error!("Error while processing file: '{name:?}'\n{e:?}");
                     }
                 };
             }
@@ -159,6 +159,15 @@ pub fn process(p: &Path) -> Result<(), self::Error> {
     Ok(())
 }
 
+//// todo
+/// - Figure out roughly what api calls to make to create an empty m4b container
+/// - figure out how that container can be filled up with audio data
+/// - read each file and process it into samples (?)
+/// - put the contents of the file into the next m4b entry
+/// - close the m4b at the end and print the path
+///
+/// ref
+///   https://github.com/pdeljanov/Symphonia/blob/master/symphonia-play/src/main.rs#L225
 fn process_impl(f: File) -> Result<(), SymphoniaError> {
     let sample_buf = get_sample_buf(f)?;
 
